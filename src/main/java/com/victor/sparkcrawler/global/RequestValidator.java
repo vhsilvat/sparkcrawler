@@ -43,7 +43,9 @@ public final class RequestValidator {
     }
 
     private boolean isInvalidBaseUrl(String baseUrl) {
-        return !baseUrl.startsWith("http://") && !baseUrl.startsWith("https://");
+        return !baseUrl.startsWith("http://")
+                && !baseUrl.startsWith("https://")
+                && !baseUrl.endsWith(".com/");
     }
 
     private boolean isInvalidRequest(spark.Request req) {

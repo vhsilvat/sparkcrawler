@@ -7,6 +7,10 @@ import com.victor.sparkcrawler.service.SearchService;
 import com.victor.sparkcrawler.util.ConcurrentLinkedSet;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import org.eclipse.jetty.util.log.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import spark.Request;
 
 import java.io.IOException;
@@ -33,9 +37,9 @@ public class CrawlerService implements SearchService {
 
     private static final String BASE_URL = System.getenv("BASE_URL");
     private static final String URL_REGEX = "<a\\s+(?:[^>]*?\\s+)?href=([\"'])(.*?)\\1";
+    private static final Pattern URL_REGEX_PATTERN = Pattern.compile(URL_REGEX, Pattern.CASE_INSENSITIVE);
     private static final int MAX_RESULT_URLS = 100;
     private static final int MAX_VISITED_URLS = 1000;
-    private static final Pattern URL_REGEX_PATTERN = Pattern.compile(URL_REGEX, Pattern.CASE_INSENSITIVE);
 
     private final ExecutorService executorService;
     private final HttpService httpService;
@@ -62,23 +66,31 @@ public class CrawlerService implements SearchService {
 
         JsonObject requestBody = gson.fromJson(request.body(), JsonObject.class);
         String keyword = requestBody.get("keyword").getAsString();
-        String id = generateId();
+        String searchResultId = generateId();
+        String threadId = generateId();
 
-        SearchResult searchResult = new SearchResult(id, STATUS_ACTIVE, new ConcurrentLinkedQueue<>());
-        searchResultsMap.put(id, searchResult);
+        SearchResult searchResult = new SearchResult(searchResultId, STATUS_ACTIVE, new ConcurrentLinkedQueue<>());
+        searchResultsMap.put(searchResultId, searchResult);
 
         CompletableFuture.runAsync(() -> {
+            MDC.put(threadId, searchResultId);
+            Logger threadLogger = LoggerFactory.getLogger(CrawlerService.class);
+
             try {
-                crawl(keyword, searchResult, httpService);
+                threadLogger.info("Starting webcrawling for keyword \"{}\", id {}", keyword, searchResultId);
+                crawl(keyword, searchResult, httpService, threadLogger);
             } catch (Exception e) {
+                threadLogger.error("Thread error starting webcrawler for keyword \"{}\", id {}", keyword, searchResultId);
                 throw new IllegalThreadStateException(e.getMessage());
+            } finally {
+                MDC.remove(threadId);
             }
         }, executorService);
 
-        return gson.toJson(Map.of("id", id));
+        return gson.toJson(Map.of("id", searchResultId));
     }
 
-    private void crawl(String keyword, SearchResult searchResult, HttpService httpService) {
+    private void crawl(String keyword, SearchResult searchResult, HttpService httpService, Logger threadLogger) {
 
         Set<String> visitedUrls = new ConcurrentLinkedSet<>();
         Set<String> urlsToVisit = new ConcurrentLinkedSet<>();
@@ -96,16 +108,19 @@ public class CrawlerService implements SearchService {
                             visitedUrls.add(currentUrl);
 
                             try {
+                                threadLogger.debug("Processing URL: {}", currentUrl);
                                 processUrl(currentUrl, keyword, searchResult, keywordOccurrencesCounter,
                                         urlsToVisit, httpService, visitedUrls);
 
                             } catch (IOException e) {
+                                threadLogger.error("Erro ao processar a URL {}", currentUrl);
                                 throw new UncheckedIOException(currentUrl, e);
                             }
                         }
                     });
         } while (!isMaxUrlResultReached(keywordOccurrencesCounter) && visitedUrls.size() <= MAX_VISITED_URLS);
 
+        threadLogger.info("Finished webcrawling for keyword \"{}\", ID {}", keyword, searchResult.getId());
         searchResult.setStatus(STATUS_DONE);
     }
 
