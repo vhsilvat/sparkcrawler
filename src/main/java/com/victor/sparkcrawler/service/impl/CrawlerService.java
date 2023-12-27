@@ -1,13 +1,12 @@
 package com.victor.sparkcrawler.service.impl;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.victor.sparkcrawler.domain.CrawlerHttpResponse;
 import com.victor.sparkcrawler.domain.SearchResult;
 import com.victor.sparkcrawler.service.HttpService;
 import com.victor.sparkcrawler.service.SearchService;
 import com.victor.sparkcrawler.util.ConcurrentLinkedSet;
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import org.eclipse.jetty.util.log.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -35,7 +34,13 @@ public class CrawlerService implements SearchService {
 
     private static final ConcurrentHashMap<String, SearchResult> searchResultsMap = new ConcurrentHashMap<>();
 
-    private static final String BASE_URL = System.getenv("BASE_URL");
+    private static final String BASE_URL;
+
+    static {
+        String baseUrlFromEnv = System.getenv("BASE_URL");
+        BASE_URL = baseUrlFromEnv != null && baseUrlFromEnv.endsWith("/") ? baseUrlFromEnv : baseUrlFromEnv + "/";
+    }
+
     private static final String URL_REGEX = "<a\\s+(?:[^>]*?\\s+)?href=([\"'])(.*?)\\1";
     private static final Pattern URL_REGEX_PATTERN = Pattern.compile(URL_REGEX, Pattern.CASE_INSENSITIVE);
     private static final int MAX_RESULT_URLS = 100;
