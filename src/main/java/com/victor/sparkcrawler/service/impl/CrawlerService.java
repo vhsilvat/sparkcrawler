@@ -104,6 +104,7 @@ public class CrawlerService implements SearchService {
                             }
                         }
                     });
+            if (isWebCrawlingFinished(visitedUrls,  urlsToVisit)) break;
         } while (!isMaxUrlResultReached(keywordOccurrencesCounter) && visitedUrls.size() <= MAX_VISITED_URLS);
 
         executorService.shutdown();
@@ -169,9 +170,18 @@ public class CrawlerService implements SearchService {
         return keywordOccurrencesCounter.get() >= MAX_RESULT_URLS;
     }
 
+    private boolean isWebCrawlingFinished(Set<String> visitedUrls, Set<String> urlsToVisit) {
+        return visitedUrls.size() == 1 && urlsToVisit.size() == 1;
+    }
+
     private String generateId() {
         // Gerar um ID alfanumérico de 8 caracteres
         return UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    // Package-private (default) access method for testing
+    void setSearchResultsMap(String key, SearchResult value) {
+        searchResultsMap.put(key, value);
     }
 
 }

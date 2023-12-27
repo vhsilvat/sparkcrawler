@@ -2,6 +2,7 @@ package com.victor.sparkcrawler.service.impl;
 
 import com.victor.sparkcrawler.domain.CrawlerHttpResponse;
 import com.victor.sparkcrawler.service.HttpService;
+import com.victor.sparkcrawler.service.HttpURLConnectionFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,11 +12,23 @@ import java.net.URL;
 
 public class CrawlerHttpService implements HttpService {
 
+    private HttpURLConnectionFactory connectionFactory;
+
+    // Default constructor using the actual connection factory
+    public CrawlerHttpService() {
+        this.connectionFactory = new DefaultHttpURLConnectionFactory();
+    }
+
+    // Constructor with dependency injection for testing
+    public CrawlerHttpService(HttpURLConnectionFactory connectionFactory) {
+        this.connectionFactory = connectionFactory;
+    }
+
     @Override
     public CrawlerHttpResponse getContent(String url) {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection = connectionFactory.createHttpURLConnection(new URL(url));
             connection.setRequestMethod("GET");
 
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
